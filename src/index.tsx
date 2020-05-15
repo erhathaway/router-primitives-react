@@ -1,16 +1,24 @@
 /* eslint-disable react/prop-types */
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 
 import React, {useState, useEffect} from 'react';
 import {IOutputLocation, RouterInstance, IRouterTemplates} from 'router-primitives';
 
 import {Animate as BaseAnimate, AnimationBinding, When} from '../src_animated_components';
 
-interface Props {
-    children?: React.ReactNode;
+interface DefaultProps<R> {
+    children?: <P, T extends string>(router: R) => React.ReactElement<P, T> | null;
+    uncontrolled?: boolean;
 }
 
 interface LinkProps {
     action: 'show' | 'hide';
+    simulated?: boolean;
+    data?: any;
+    pathData?: Record<string, any>;
+    replaceLocation?: boolean;
+    disableCaching?: boolean;
+    addCacheToLocation?: boolean;
     children?: React.ReactNode;
 }
 
@@ -27,19 +35,19 @@ interface RouterAnimateProps {
     exitAfterChildFinish?: string[];
 }
 
-type RouterT = React.FC<Props> & {
+type RouterT<R> = React.FC<DefaultProps<R>> & {
     Link: React.FC<LinkProps>;
     Animate: React.FC<RouterAnimateProps>;
 };
 
 export const createRouterComponents = <CustomTemplates extends IRouterTemplates>(
     routers: Record<string, RouterInstance<CustomTemplates>> // eslint-disable-line
-): Record<string, RouterT> => {
+): Record<string, RouterT<RouterInstance<CustomTemplates>>> => {
     return Object.keys(routers).reduce((acc, routerName) => {
         const r = routers[routerName];
 
         // eslint-disable-next-line
-        const component: React.FC<Props> = ({children}) => {
+        const component: React.FC<DefaultProps<typeof r>> = ({children, uncontrolled}) => {
             const [state, setState] = useState(r.state);
             useEffect(() => {
                 if (r && r.subscribe) {
@@ -47,10 +55,21 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
                 }
                 return;
             }, ['startup']);
+            if (uncontrolled) {
+                return children ? children(r) : null;
+            }
             return state.visible ? <>{children}</> : null;
         };
         // eslint-disable-next-line
-        const Link: React.FC<LinkProps> = ({children, action}) => {
+        const Link: React.FC<LinkProps> = ({children, action, simulated, ...actionOptions}) => {
+            const actionKeys = Object.keys(actionOptions);
+            if (!simulated && actionKeys.length > 0) {
+                throw new Error(
+                    `The 'simulated' prop must be used when the action option(s) '${actionKeys.join(
+                        ' '
+                    )}' are used}.`
+                );
+            }
             /**
              * Subscribe to all state changes
              */
@@ -66,8 +85,49 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
             }, ['startup']);
 
             const link = r.link(action);
-            return (
-                <a href={undefined} title={link} onClick={() => r[action]()}>
+            return simulated ? (
+                <a href={undefined} title={link} onClick={() => r[action](actionOptions)}>
+                    {children}
+                </a>
+            ) : (
+                <a href={link} title={link}>
+                    {children}
+                </a>
+            );
+        };
+
+        // eslint-disable-next-line
+        const ToggleLink: React.FC<LinkProps> = ({children, simulated, ...actionOptions}) => {
+            const actionKeys = Object.keys(actionOptions);
+            if (!simulated && actionKeys.length > 0) {
+                throw new Error(
+                    `The 'simulated' prop must be used when the action option(s) '${actionKeys.join(
+                        ' '
+                    )}' are used}.`
+                );
+            }
+            /**
+             * Subscribe to all state changes
+             */
+            // eslint-disable-next-line
+            const [_, setRouterState] = useState<IOutputLocation>();
+            useEffect(() => {
+                if (r.manager.serializedStateStore) {
+                    r.manager.serializedStateStore.subscribeToStateChanges(all =>
+                        setRouterState(all)
+                    );
+                }
+                return;
+            }, ['startup']);
+
+            const action = r.state.visible ? 'hide' : 'show';
+            const link = r.link(action);
+            return simulated ? (
+                <a href={undefined} title={link} onClick={() => r[action](actionOptions)}>
+                    {children}
+                </a>
+            ) : (
+                <a href={link} title={link}>
                     {children}
                 </a>
             );
@@ -126,7 +186,7 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
                 </BaseAnimate>
             );
         };
-        const updated = Object.assign(component, {Link, Animate});
+        const updated = Object.assign(component, {Link, ToggleLink, Animate});
         return {...acc, [routerName]: updated};
-    }, {} as Record<string, RouterT>);
+    }, {} as Record<string, RouterT<RouterInstance<CustomTemplates>>>);
 };

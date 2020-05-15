@@ -232,13 +232,16 @@ const Root = (): JSX.Element => {
     return (
         <RootLayoutContainer>
             <AnimationsController>
-                <Native.Link action={'show'}>
+                <Native.Link action={'show'} simulated replaceLocation>
                     <Button>{'Show Native Animations'}</Button>
                 </Native.Link>
-                <RouterPrimitives.Link action={'show'}>
+                <RouterPrimitives.Link action={'show'} simulated replaceLocation>
                     <Button id="123">{'Show Router Primitive Animations'}</Button>
                 </RouterPrimitives.Link>
             </AnimationsController>
+            <Native uncontrolled>
+                {r => <div>{`${r.name} is visible: ${r.state.visible}`}</div>}
+            </Native>
             <Native.Animate
                 unMountOnHide
                 exitAfterChildFinish={['1']}
