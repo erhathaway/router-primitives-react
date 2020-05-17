@@ -13,13 +13,14 @@ interface DefaultProps<R> {
 
 interface LinkProps {
     action: 'show' | 'hide';
-    simulated?: boolean;
     data?: any;
     pathData?: Record<string, any>;
     replaceLocation?: boolean;
     disableCaching?: boolean;
     addCacheToLocation?: boolean;
     children?: React.ReactNode;
+    includeTitle?: boolean;
+    includeCacheInTitle?: boolean;
 }
 
 interface RouterAnimateProps {
@@ -37,7 +38,14 @@ interface RouterAnimateProps {
 
 type RouterT<R> = React.FC<DefaultProps<R>> & {
     Link: React.FC<LinkProps>;
+    ToggleLink: React.FC<LinkProps>;
+
     Animate: React.FC<RouterAnimateProps>;
+};
+
+const removeCacheFromTitle = (link: string, cacheKey: string): string => {
+    const regex = new RegExp(`${cacheKey}=([^&]*)&|${cacheKey}=([^&]*)`);
+    return link.replace(regex, '');
 };
 
 export const createRouterComponents = <CustomTemplates extends IRouterTemplates>(
@@ -51,7 +59,8 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
             const [state, setState] = useState(r.state);
             useEffect(() => {
                 if (r && r.subscribe) {
-                    r.subscribe(all => setState(all.current));
+                    // return disposer
+                    return r.subscribe(all => setState(all.current));
                 }
                 return;
             }, ['startup']);
@@ -61,13 +70,21 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
             return state.visible ? <>{children}</> : null;
         };
         // eslint-disable-next-line
-        const Link: React.FC<LinkProps> = ({children, action, simulated, ...actionOptions}) => {
-            const actionKeys = Object.keys(actionOptions);
-            if (!simulated && actionKeys.length > 0) {
+        const Link: React.FC<LinkProps> = ({
+            children,
+            action,
+            includeCacheInTitle,
+            includeTitle,
+            ...actionOptions
+        }) => {
+            if (includeCacheInTitle && !includeTitle) {
                 throw new Error(
-                    `The 'simulated' prop must be used when the action option(s) '${actionKeys.join(
-                        ' '
-                    )}' are used}.`
+                    `The 'includeTitle' prop must be used when using the 'includeCacheInTitle' prop`
+                );
+            }
+            if (includeCacheInTitle && !actionOptions.addCacheToLocation) {
+                throw new Error(
+                    `The 'addCacheToLocation' prop must be used when using the 'includeCacheInTitle' prop`
                 );
             }
             /**
@@ -77,35 +94,37 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
             const [_, setRouterState] = useState<IOutputLocation>();
             useEffect(() => {
                 if (r.manager.serializedStateStore) {
-                    r.manager.serializedStateStore.subscribeToStateChanges(all =>
+                    // return disposer
+                    return r.manager.serializedStateStore.subscribeToStateChanges(all =>
                         setRouterState(all)
                     );
                 }
                 return;
             }, ['startup']);
 
-            const link = r.link(action);
-            return simulated ? (
-                <a href={undefined} title={link} onClick={() => r[action](actionOptions)}>
-                    {children}
-                </a>
-            ) : (
-                <a href={link} title={link}>
+            const link = r.link(action, actionOptions);
+            const title = includeTitle
+                ? includeCacheInTitle
+                    ? link
+                    : removeCacheFromTitle(link, r.manager.cacheKey)
+                : undefined;
+            return (
+                <a
+                    href={link}
+                    title={title}
+                    onClick={e => {
+                        // prevent the link event from working b/c it does an app reload
+                        e.preventDefault();
+                        r[action](actionOptions);
+                    }}
+                >
                     {children}
                 </a>
             );
         };
 
         // eslint-disable-next-line
-        const ToggleLink: React.FC<LinkProps> = ({children, simulated, ...actionOptions}) => {
-            const actionKeys = Object.keys(actionOptions);
-            if (!simulated && actionKeys.length > 0) {
-                throw new Error(
-                    `The 'simulated' prop must be used when the action option(s) '${actionKeys.join(
-                        ' '
-                    )}' are used}.`
-                );
-            }
+        const ToggleLink: React.FC<LinkProps> = ({children, ...actionOptions}) => {
             /**
              * Subscribe to all state changes
              */
@@ -113,7 +132,8 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
             const [_, setRouterState] = useState<IOutputLocation>();
             useEffect(() => {
                 if (r.manager.serializedStateStore) {
-                    r.manager.serializedStateStore.subscribeToStateChanges(all =>
+                    // return disposer
+                    return r.manager.serializedStateStore.subscribeToStateChanges(all =>
                         setRouterState(all)
                     );
                 }
@@ -121,13 +141,17 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
             }, ['startup']);
 
             const action = r.state.visible ? 'hide' : 'show';
-            const link = r.link(action);
-            return simulated ? (
-                <a href={undefined} title={link} onClick={() => r[action](actionOptions)}>
-                    {children}
-                </a>
-            ) : (
-                <a href={link} title={link}>
+            const link = r.link(action, actionOptions);
+            return (
+                <a
+                    href={link}
+                    title={link}
+                    onClick={e => {
+                        // prevent link event from working b/c it does an app reload
+                        e.preventDefault();
+                        r[action](actionOptions);
+                    }}
+                >
                     {children}
                 </a>
             );
@@ -155,7 +179,8 @@ export const createRouterComponents = <CustomTemplates extends IRouterTemplates>
 
             useEffect(() => {
                 if (r && r.subscribe) {
-                    r.subscribe(all => {
+                    // return disposer
+                    return r.subscribe(all => {
                         const state = all.current;
                         setTriggerState({
                             visible: state.visible,

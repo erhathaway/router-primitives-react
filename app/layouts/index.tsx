@@ -232,10 +232,22 @@ const Root = (): JSX.Element => {
     return (
         <RootLayoutContainer>
             <AnimationsController>
-                <Native.Link action={'show'} simulated replaceLocation>
+                <Native.Link
+                    action={'show'}
+                    // addCacheToLocation
+                    includeTitle
+                    // includeCacheInTitle
+                    replaceLocation
+                >
                     <Button>{'Show Native Animations'}</Button>
                 </Native.Link>
-                <RouterPrimitives.Link action={'show'} simulated replaceLocation>
+                <RouterPrimitives.Link
+                    action={'show'}
+                    // addCacheToLocation
+                    includeTitle
+                    // includeCacheInTitle
+                    replaceLocation
+                >
                     <Button id="123">{'Show Router Primitive Animations'}</Button>
                 </RouterPrimitives.Link>
             </AnimationsController>
@@ -440,12 +452,12 @@ const Root = (): JSX.Element => {
                             </SunScene.Animate>
                             {'main'}
                             <RouterPrimitiveAnimationsControl>
-                                <MoonScene.Link action={'show'}>
-                                    <Button>{'Show Moon'}</Button>
-                                </MoonScene.Link>
-                                <SunScene.Link action={'show'}>
-                                    <Button>{'Show Sun'}</Button>
-                                </SunScene.Link>
+                                <MoonScene.ToggleLink action={'show'}>
+                                    <Button>{'Toggle Moon'}</Button>
+                                </MoonScene.ToggleLink>
+                                <SunScene.ToggleLink action={'show'}>
+                                    <Button>{'Toggle Sun'}</Button>
+                                </SunScene.ToggleLink>
                             </RouterPrimitiveAnimationsControl>
                         </>
                     )}

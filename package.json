@@ -12,7 +12,7 @@
     "scripts": {
         "app:start": "parcel app/index.html --out-dir build_app --no-cache --no-autoinstall",
         "app:build": "npm run clean && parcel build --out-dir build_app --no-autoinstall app/index.html",
-        "clean": "rimraf dist tmp",
+        "clean": "rimraf dist tmp build_app",
         "build": "npm run clean && rollup -c",
         "build:watch": "npm run clean && rollup -cw",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
@@ -69,6 +69,6 @@
     "dependencies": {
         "react": "^16.13.1",
         "react-dom": "^16.13.0",
-        "router-primitives": "^1.0.0-beta.6"
+        "router-primitives": "../router-primitives"
     }
 }
